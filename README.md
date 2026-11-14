@@ -1,5 +1,7 @@
 # KeepYourRate
 
+[Live application](https://keepyourrate-cup-two.buffforum64.chatgpt.site) · [Public source](https://github.com/y3sh1/keepyourrate)
+
 An English-language, USD web MVP for fixed-price service work. Turn an extra client request into a paid add-on or a scope swap, publish an immutable proposal, and let the client confirm the agreed price and work. No registration, payment collection, AI, or message sending.
 
 The calculated hourly rate is after the direct expenses entered and depends on the entered time. Offers protect the **chosen minimum**, which may be below the original effective rate.
@@ -65,7 +67,7 @@ npx wrangler deploy
 
 Use an existing suitable free account; no paid subscription is required or purchased by this project. Confirm available quotas before broader use. Set the public site audience so client links work without login. Do not embed credentials or proposals in source, build assets, or logs. Keep request access logging disabled because URLs are bearer capabilities.
 
-To publish a public GitHub repository when your account is connected, create an empty public repository, add its remote, and push the source commit. The `.gitignore` excludes dependencies, build outputs, local D1, environment files and test receipts. Review `git ls-files` before pushing. Sites' source repository is separate and does not imply public GitHub publication.
+The public GitHub repository is linked above. The `.gitignore` excludes dependencies, build outputs, local D1, environment files and test receipts. Review `git ls-files` before pushing changes. Sites also has its own separate source repository; synchronize the exact source used for each deployment.
 
 ## 60-second judging scenario
 

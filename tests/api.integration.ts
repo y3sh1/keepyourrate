@@ -66,7 +66,46 @@ function rejection(status: number): void {
   assert.ok(status === 400 || status === 422, `expected validation rejection, received ${status}`);
 }
 
-test('publish → anonymous client → confirm → owner reload; public data allowlist', async () => {
+async function assertPublicPageAssets(clientPath: string, ownerToken: string): Promise<number> {
+  const pageUrl = new URL(clientPath, base);
+  const page = await fetch(pageUrl, { redirect: 'error' });
+  assert.equal(page.status, 200);
+  const html = await page.text();
+  const privateKeys = ['minimumRateCents', 'costCents', 'budgetGapCents'];
+  function noPrivateData(text: string, label: string) {
+    assert.ok(!text.includes(ownerToken), `${label} must not contain the owner capability`);
+    // Exact application keys only: generic words such as "minutes" occur in framework code.
+    for (const key of privateKeys) {
+      assert.ok(!new RegExp(`\\b${key}\\b`).test(text), `${label} must not expose private field ${key}`);
+    }
+  }
+  noPrivateData(html, 'Public HTML and embedded initial data');
+  const assets = new Map<string, 'script' | 'style'>();
+  const attr = (tag: string, name: string) => tag.match(new RegExp(`\\b${name}\\s*=\\s*["']([^"']+)["']`, 'i'))?.[1].replace(/&amp;/g, '&');
+  for (const [tag] of html.matchAll(/<(?:script|link)\b[^>]*>/gi)) {
+    const isScript = /^<script\b/i.test(tag);
+    const rel = attr(tag, 'rel')?.toLowerCase();
+    const as = attr(tag, 'as')?.toLowerCase();
+    const kind = isScript || rel === 'modulepreload' || (rel === 'preload' && as === 'script')
+      ? 'script' : rel === 'stylesheet' || (rel === 'preload' && as === 'style') ? 'style' : null;
+    const reference = attr(tag, isScript ? 'src' : 'href');
+    if (!kind || !reference) continue;
+    const url = new URL(reference, pageUrl);
+    if (url.origin === pageUrl.origin) assets.set(url.href, kind);
+  }
+  assert.ok([...assets.values()].includes('script'), 'audit must inspect actual referenced JavaScript');
+  assert.ok([...assets.values()].includes('style'), 'audit must inspect actual referenced CSS');
+  await Promise.all([...assets].map(async ([url, kind]) => {
+    const response = await fetch(url, { redirect: 'error' });
+    const label = new URL(url).pathname;
+    assert.equal(response.status, 200, `referenced asset ${label} loads`);
+    assert.match(response.headers.get('content-type') ?? '', kind === 'script' ? /javascript/i : /css/i);
+    noPrivateData(await response.text(), label);
+  }));
+  return assets.size;
+}
+
+test('publish → anonymous client → confirm → owner reload; public API, HTML and assets', async t => {
   const published = await publish();
   const clientToken = token(published.clientPath), ownerToken = token(published.ownerPath);
   const initial = await api<PublicProposal>(`/api/client/${clientToken}`);
@@ -81,11 +120,8 @@ test('publish → anonymous client → confirm → owner reload; public data all
   assert.deepEqual(initial.data.options[1].removed, ['Extra social media formats', 'Print-ready version']);
   assert.match(initial.response.headers.get('cache-control') ?? '', /no-store/i);
   assert.ok(!initial.text.includes(ownerToken), 'owner capability never reaches client API');
-  const page = await fetch(new URL(published.clientPath, base));
-  assert.equal(page.status, 200);
-  const html = await page.text();
-  assert.ok(!html.includes(ownerToken), 'HTML does not contain owner capability');
-  assert.ok(!html.includes('minimumRateCents'), 'HTML does not contain private input data');
+  const assetCount = await assertPublicPageAssets(published.clientPath, ownerToken);
+  t.diagnostic(`Privacy audit inspected public HTML, embedded initial data, and ${assetCount} referenced same-origin script/CSS assets.`);
   const accepted = await api<PublicProposal>(`/api/client/${clientToken}/confirm`, { optionId: 'swap' });
   assert.equal(accepted.response.status, 200);
   publicOnly(accepted.data);
