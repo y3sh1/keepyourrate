@@ -1,0 +1,12 @@
+import { build } from 'esbuild';
+import { cp, mkdir, readFile, writeFile } from 'node:fs/promises';
+await mkdir('dist/server', { recursive: true });
+await mkdir('dist/.openai', { recursive: true });
+await cp('out', 'dist/client', { recursive: true });
+await cp('.openai/hosting.json', 'dist/.openai/hosting.json');
+await cp('drizzle', 'dist/.openai/drizzle', { recursive: true });
+await build({ entryPoints: ['worker/index.ts'], bundle: true, format: 'esm', platform: 'browser', target: 'es2022', outfile: 'dist/server/index.js', minify: true });
+const config = JSON.parse(await readFile('wrangler.jsonc', 'utf8'));
+config.main = './index.js'; config.assets.directory = '../client'; config.d1_databases[0].migrations_dir = '../.openai/drizzle';
+await writeFile('dist/server/wrangler.json', JSON.stringify(config, null, 2));
+console.log('Built Next.js assets and D1 API Worker.');
