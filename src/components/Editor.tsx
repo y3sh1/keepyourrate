@@ -141,7 +141,7 @@ export default function Editor() {
   async function publish() {
     setShowErrors(true); setPublishError('');
     if (!parsed.input) { requestAnimationFrame(() => { const target = document.querySelector<HTMLElement>('[aria-invalid="true"]') || document.getElementById('items-error'); target?.focus(); }); return; }
-    setPublishing(true);
+    setPublishing(true); setShowContinue(false);
     try {
       const response = await fetch('/api/proposals', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(parsed.input) });
       const data = await response.json() as Published & { error?: string; errors?: FieldErrors };

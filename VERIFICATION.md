@@ -45,3 +45,5 @@ Browser checks used desktop Chrome/IAB and mobile viewport emulation, not physic
 - Handoff did not retain the owner token in the new editor URL, and the new editor showed no prior publication links. Storage schema tests ensure links and confirmation are not serialized into drafts.
 - Source review addressed stale asynchronous message responses and prevented publication completion from overwriting edits made while saving.
 - Browser-storage denial and clipboard denial handling were inspected in source; those permission failures were not forced in the live browser.
+- Production API regression: **7/7 active tests passed**, including concurrent confirmation, independent snapshots, capability isolation and public API/HTML/assets privacy.
+- Repeated draft restoration and independent A/B publication in production using IAB and Chrome: unfinished price and edited name survived reload; the copied draft retained its changed expenses after another reload. A remained confirmed as a $700 swap while B was independently confirmed at $1,030. Client and private clipboard links matched on both publication and owner pages.
