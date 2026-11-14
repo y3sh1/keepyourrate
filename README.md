@@ -6,6 +6,14 @@ An English-language, USD web MVP for fixed-price service work. Turn an extra cli
 
 The calculated hourly rate is after the direct expenses entered and depends on the entered time. Offers protect the **chosen minimum**, which may be below the original effective rate.
 
+## Drafts and reusing a proposal
+
+Edits autosave immediately in this browser, including unfinished or invalid text. Reloading restores the draft; **Continue your draft** returns to it. Opening a demo or blank project alone does not overwrite the saved copy; editing the new project replaces it. Drafts are device-local, contain your private working inputs, and do not include access links or confirmation. Browser storage must be available; failures are shown without clearing the current inputs. Clearing site data removes the saved draft.
+
+On a private status page, **Create a new proposal from this** copies the original saved inputs into the editor. It uses a one-use same-tab handoff without putting private data or tokens in the URL. Publishing creates a separate proposal with new links and no inherited confirmation. The original remains unchanged. This action copies the original inputs, not a new baseline derived from the client's selected scope.
+
+**Copy client link** and **Copy private link** are available after publication and on the private status page. A selectable fallback field appears if clipboard access fails. Save the private link somewhere private; only share the client link.
+
 ## Run the complete application
 
 Requires Node.js 22.13+ and npm (verified environment: Node 24). From a fresh source checkout:
@@ -91,4 +99,4 @@ Record completion, points of difficulty, and participant comments. No participan
 
 ## Boundaries
 
-Links grant access to anyone holding them; save the owner link privately. There is no login, identity verification, link recovery/revocation, deletion UI, or payment flow. Confirmation records agreement on scope and price; an agreed extra charge is not collected revenue. Published snapshots cannot be edited; create a new proposal instead. The editor is kept in memory while open; refreshing it resets the draft, while published links remain in D1. This MVP has no application-level abuse throttling; a larger public launch should configure hosting rate limits and retention. No official competition weights were provided or invented.
+Links grant access to anyone holding them; save the owner link privately. There is no login, identity verification, link recovery/revocation, deletion UI, or payment flow. Confirmation records agreement on scope and price; an agreed extra charge is not collected revenue. Published snapshots cannot be edited; create a new proposal instead. Drafts stay in the browser and do not sync between devices; published proposals remain in D1. This MVP has no application-level abuse throttling; a larger public launch should configure hosting rate limits and retention. No official competition weights were provided or invented.

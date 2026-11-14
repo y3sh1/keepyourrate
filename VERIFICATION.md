@@ -33,4 +33,15 @@ No economic impact or competition score is asserted.
 
 ## Practical limits
 
-Browser checks used desktop Chrome/IAB and mobile viewport emulation, not physical phones or every browser. User research is a prepared procedure only. Capability links do not verify identity; no payments are processed. The editor draft resets on refresh; published proposals remain in D1. No real customer data was used in verification.
+Browser checks used desktop Chrome/IAB and mobile viewport emulation, not physical phones or every browser. User research is a prepared procedure only. Capability links do not verify identity; no payments are processed. Drafts are now saved locally when browser storage is available; published proposals remain in D1. No real customer data was used in verification.
+
+## Draft and link update — 15 November 2026
+
+- Added versioned, bounded local draft storage with immediate saves and raw invalid/unfinished input preservation. Six new unit tests cover round trips, malformed/incompatible envelopes, oversized data, metadata exclusion and exact cloning. Total: **33/33 unit tests passed**.
+- TypeScript check and production build passed. The unchanged server API regression suite passed **7/7 active tests locally**, including public HTML/assets privacy and race/idempotency checks. The separate historical restart test was not repeated for this UI-only change.
+- Local IAB browser: changed a name and entered unfinished `700.`, reloaded and restored both exactly. Opening demo and then Continue restored the saved draft without replacing it merely on navigation.
+- Checked both clipboard buttons on the publication panel and private status page: absolute client/private URLs matched their destinations and remained separate.
+- Confirmed A as a $700 swap in independent Chrome, created a draft from its private page, changed expenses, published and confirmed B at $1,030. B received a different client link and started unconfirmed; A retained its $700 swap and original timestamp.
+- Handoff did not retain the owner token in the new editor URL, and the new editor showed no prior publication links. Storage schema tests ensure links and confirmation are not serialized into drafts.
+- Source review addressed stale asynchronous message responses and prevented publication completion from overwriting edits made while saving.
+- Browser-storage denial and clipboard denial handling were inspected in source; those permission failures were not forced in the live browser.
