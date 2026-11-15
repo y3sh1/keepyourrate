@@ -71,7 +71,7 @@ async function assertPublicPageAssets(clientPath: string, ownerToken: string): P
   const page = await fetch(pageUrl, { redirect: 'error' });
   assert.equal(page.status, 200);
   const html = await page.text();
-  const privateKeys = ['minimumRateCents', 'costCents', 'budgetGapCents'];
+  const privateKeys = ['minimumRateCents', 'costCents', 'budgetGapCents', 'rateCents', 'minimumProtected'];
   function noPrivateData(text: string, label: string) {
     assert.ok(!text.includes(ownerToken), `${label} must not contain the owner capability`);
     // Exact application keys only: generic words such as "minutes" occur in framework code.
@@ -100,7 +100,13 @@ async function assertPublicPageAssets(clientPath: string, ownerToken: string): P
     const label = new URL(url).pathname;
     assert.equal(response.status, 200, `referenced asset ${label} loads`);
     assert.match(response.headers.get('content-type') ?? '', kind === 'script' ? /javascript/i : /css/i);
-    noPrivateData(await response.text(), label);
+    const content = await response.text();
+    noPrivateData(content, label);
+    if (kind === 'script') {
+      for (const helper of ['getOptionRates', 'isMinimumBelowCurrent']) {
+        assert.ok(!new RegExp(`\\b${helper}\\b`).test(content), `${label} must not import editor-only rate helpers`);
+      }
+    }
   }));
   return assets.size;
 }
@@ -153,7 +159,7 @@ test('capabilities are not interchangeable; invalid links return no private data
   ]) {
     const result = await api(route);
     assert.equal(result.response.status, 404);
-    for (const forbidden of ['costCents', 'minimumRateCents', 'minutes', 'calculation', token(published.ownerPath)]) {
+    for (const forbidden of ['costCents', 'minimumRateCents', 'rateCents', 'minimumProtected', 'minutes', 'calculation', token(published.ownerPath)]) {
       assert.ok(!result.text.includes(forbidden), `invalid-link response omits ${forbidden.length > 30 ? '[token]' : forbidden}`);
     }
   }

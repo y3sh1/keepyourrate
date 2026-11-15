@@ -4,8 +4,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { calculate } from '@/lib/calculation';
 import { validateInput } from '@/lib/validation';
 import { DEMO } from '@/lib/demo';
-import { buildClientMessage, formatMoney } from '@/lib/message';
-import type { FieldErrors, Published, PublicProposal } from '@/lib/types';
+import { formatMoney } from '@/lib/message';
+import type { FieldErrors, Published } from '@/lib/types';
+import { getOptionRates, isMinimumBelowCurrent } from '@/lib/option-rates';
+import { ClientMessagePanel } from './ClientMessagePanel';
 import { Brand, Footer } from './Brand';
 import { OptionCard } from './OptionCard';
 import { CopyLinkButton } from './CopyLinkButton';
@@ -44,20 +46,17 @@ export default function Editor() {
   const [savedDraft, setSavedDraft] = useState<SavedDraft | null>(null);
   const [showContinue, setShowContinue] = useState(false);
   const initialized = useRef(false);
-  const copySequence = useRef(0);
   const [showErrors, setShowErrors] = useState(false);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [serverErrors, setServerErrors] = useState<FieldErrors>({});
   const [publishing, setPublishing] = useState(false);
   const [publishError, setPublishError] = useState('');
   const [published, setPublished] = useState<Published | null>(null);
-  const [copied, setCopied] = useState('');
-  const [copying, setCopying] = useState(false);
-  const [messageFallback, setMessageFallback] = useState('');
   const editorRef = useRef<HTMLElement>(null);
   const publishedRef = useRef<HTMLDivElement>(null);
   const parsed = useMemo(() => parseDraft(draft), [draft]);
   const calculation = useMemo(() => parsed.input ? calculate(parsed.input) : null, [parsed.input]);
+  const optionRates = useMemo(() => parsed.input && calculation ? getOptionRates(parsed.input, calculation) : [], [parsed.input, calculation]);
   const errors = { ...parsed.errors, ...serverErrors };
   const demoCalculation = useMemo(() => calculate(DEMO), []);
 
@@ -111,7 +110,7 @@ export default function Editor() {
       setDraft(savedDraft.draft); setMode(savedDraft.mode); setSavedAt(savedDraft.savedAt);
       setDraftNotice('Your saved draft is restored, including unfinished fields.');
       setShowErrors(false); setTouched({}); setServerErrors({}); setPublishError('');
-      copySequence.current++; setCopying(false); setPublished(null); setCopied(''); setMessageFallback('');
+      setPublished(null);
     }
     setShowContinue(false);
     requestAnimationFrame(() => { editorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }); document.getElementById('priceCents')?.focus({ preventScroll: true }); });
@@ -120,8 +119,7 @@ export default function Editor() {
     const next = nextMode === 'demo' ? asDraft(DEMO) : emptyDraft();
     setMode(nextMode); setDraft(next); setSavedAt('');
     setDraftNotice(savedDraft ? 'Your saved draft is still available. Continue it, or edit this project to replace it.' : ''); setShowContinue(!!savedDraft);
-    copySequence.current++; setCopying(false);
-    setPublished(null); setCopied(''); setMessageFallback('');
+    setPublished(null);
     setShowErrors(false); setTouched({}); setServerErrors({}); setPublishError('');
     requestAnimationFrame(() => editorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   }
@@ -146,28 +144,10 @@ export default function Editor() {
       const response = await fetch('/api/proposals', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(parsed.input) });
       const data = await response.json() as Published & { error?: string; errors?: FieldErrors };
       if (!response.ok) { if (data.errors) setServerErrors(data.errors); throw new Error(data.error || 'Your proposal could not be saved. Please try again.'); }
-      copySequence.current++; setCopying(false);
-      setPublished(data); setCopied(''); setMessageFallback('');
+      setPublished(data);
       requestAnimationFrame(() => publishedRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }));
     } catch (error) { setPublishError(error instanceof Error ? error.message : 'Connection interrupted. Your inputs are still here. Please try again.'); }
     finally { setPublishing(false); }
-  }
-  async function copyMessage() {
-    if (!published) return;
-    const attempt = ++copySequence.current;
-    setCopying(true); setCopied(''); setMessageFallback('');
-    try {
-      const clientUrl = new URL(published.clientPath, window.location.origin);
-      const response = await fetch(`/api/client/${clientUrl.searchParams.get('token')}`, { cache: 'no-store' });
-      if (!response.ok) throw new Error('Could not check the latest status. Please try again.');
-      const proposal = await response.json() as PublicProposal;
-      if (copySequence.current !== attempt) return;
-      setPublished(current => current?.clientPath === published.clientPath ? { ...current, proposal } : current);
-      const message = buildClientMessage(proposal, clientUrl.href);
-      try { await navigator.clipboard.writeText(message); if (copySequence.current === attempt) { setCopied('Message copied. Ready to send.'); setMessageFallback(''); } }
-      catch { if (copySequence.current === attempt) { setMessageFallback(message); setCopied('Select and copy the message below.'); } }
-    } catch (error) { if (copySequence.current === attempt) setCopied(error instanceof Error ? error.message : 'Could not prepare your message. Please try again.'); }
-    finally { if (copySequence.current === attempt) setCopying(false); }
   }
 
   return <>
@@ -188,7 +168,7 @@ export default function Editor() {
         {mode === 'demo' && <div className="demo-note"><span className="tag">EDITABLE DEMO</span><p>Event materials · Change any number or mark an item as required to see what changes.</p></div>}
         <div className="editor-layout"><div className="editor-inputs">
           <section className="form-panel"><div className="panel-heading"><span className="step-number">01</span><div><h3>The original agreement</h3><p>The fixed price and the rate you want to protect.</p></div></div><div className="two-fields"><label className="field"><span>Agreed project price</span><div className="input-with-prefix"><span>$</span><input {...inputProps('priceCents')} inputMode="decimal" value={draft.priceCents} onChange={e => update(v => ({ ...v, priceCents: e.target.value }))} placeholder="700" /></div>{errorText('priceCents')}</label><label className="field"><span>Minimum rate to protect</span><div className="input-with-prefix"><span>$</span><input {...inputProps('minimumRateCents')} inputMode="decimal" value={draft.minimumRateCents} onChange={e => update(v => ({ ...v, minimumRateCents: e.target.value }))} placeholder="60" /><span className="input-suffix">/hr</span></div>{errorText('minimumRateCents')}<span className="field-hint">{calculation ? `Current effective rate: ${formatMoney(Math.round(calculation.currentRateCents))}/hour` : 'Your minimum may differ from your current rate.'}</span></label></div>
-            {calculation && parsed.input && parsed.input.minimumRateCents < calculation.currentRateCents && <p className="inline-note">Your chosen minimum is below your current rate. These options protect {formatMoney(parsed.input.minimumRateCents)}/hour.</p>}
+            {calculation && parsed.input && isMinimumBelowCurrent(parsed.input) && <p className="inline-note">You are protecting {formatMoney(parsed.input.minimumRateCents)}/hour. Your current rate is {formatMoney(Math.round(calculation.currentRateCents))}/hour; these options may be below that current rate.</p>}
             <div className="items-heading"><h4>Original scope</h4><span>Up to 12 items</span></div>
             <div className="work-items">{draft.items.map((item, i) => <div className="work-item" key={i}><div className="item-top"><label className="field item-name"><span>Item {i + 1}</span><input {...inputProps(`items.${i}.name`)} value={item.name} maxLength={160} placeholder="Name a deliverable or task" onChange={e => update(v => ({ ...v, items: v.items.map((it, j) => j === i ? { ...it, name: e.target.value } : it) }))} />{errorText(`items.${i}.name`)}</label>{draft.items.length > 1 && <button className="remove-item" aria-label={`Remove item ${i + 1}`} onClick={() => update(v => ({ ...v, items: v.items.filter((_, j) => j !== i) }))}>×</button>}</div><div className="item-details"><label className="field"><span>Time <small>(minutes)</small></span><input {...inputProps(`items.${i}.minutes`)} inputMode="numeric" value={item.minutes} onChange={e => update(v => ({ ...v, items: v.items.map((it, j) => j === i ? { ...it, minutes: e.target.value } : it) }))} />{errorText(`items.${i}.minutes`)}</label><label className="field"><span>Direct expenses</span><div className="input-with-prefix"><span>$</span><input {...inputProps(`items.${i}.costCents`)} inputMode="decimal" value={item.costCents} onChange={e => update(v => ({ ...v, items: v.items.map((it, j) => j === i ? { ...it, costCents: e.target.value } : it) }))} /></div>{errorText(`items.${i}.costCents`)}</label><label className="swap-checkbox"><input type="checkbox" checked={item.swappable} onChange={e => update(v => ({ ...v, items: v.items.map((it, j) => j === i ? { ...it, swappable: e.target.checked } : it) }))} /><span>Can be swapped<small>{item.swappable ? 'May be removed' : 'Required in every option'}</small></span></label></div></div>)}</div>
             {errorText('items')}<button className="text-button add-item" disabled={draft.items.length >= 12} onClick={() => update(v => ({ ...v, items: [...v.items, { name: '', minutes: '', costCents: '0', swappable: false }] }))}>+ Add an original item</button><p className="field-hint">60 minutes = 1 hour. Include only expenses directly tied to the work.</p>
@@ -196,10 +176,20 @@ export default function Editor() {
           <section className="form-panel request-panel"><div className="panel-heading"><span className="step-number">02</span><div><h3>The new request</h3><p>One item can include several related tasks.</p></div><span className="new-tag">NEW</span></div><label className="field"><span>What is the client asking for?</span><input {...inputProps('request.name')} value={draft.request.name} maxLength={160} placeholder="Describe the additional work" onChange={e => update(v => ({ ...v, request: { ...v.request, name: e.target.value } }))} />{errorText('request.name')}</label><div className="two-fields"><label className="field"><span>Time <small>(minutes)</small></span><input {...inputProps('request.minutes')} inputMode="numeric" value={draft.request.minutes} onChange={e => update(v => ({ ...v, request: { ...v.request, minutes: e.target.value } }))} />{errorText('request.minutes')}</label><label className="field"><span>Direct expenses</span><div className="input-with-prefix"><span>$</span><input {...inputProps('request.costCents')} inputMode="decimal" value={draft.request.costCents} onChange={e => update(v => ({ ...v, request: { ...v.request, costCents: e.target.value } }))} /></div>{errorText('request.costCents')}</label></div></section>
         </div>
         <aside className="editor-results"><div className="results-sticky"><div className="results-heading"><span className="eyebrow">THE NUMBERS, IN REAL TIME</span><span className="live-badge"><span className="status-dot" />Live</span></div>
-          {calculation ? <><div className="rate-summary" aria-live="polite"><div className="rate-row"><span>Current rate</span><strong><Rate cents={calculation.currentRateCents} /></strong></div><div className="rate-row free-rate"><span>If added for free</span><strong><Rate cents={calculation.freeRateCents} />{calculation.changePercent !== null && <b className="percent-change">{calculation.changePercent < 0 ? '−' : '+'}{Math.abs(calculation.changePercent).toFixed(1)}%</b>}</strong></div><div className="keep-everything"><span>Keep everything</span><strong>+{formatMoney(calculation.options[0].extraCents)}</strong></div></div><p className="rate-explainer">Estimated hourly rate after your stated direct expenses, based on the time you enter.</p><div className="options-heading"><h3>Your proposal options</h3><span>{calculation.options.length} {calculation.options.length === 1 ? 'option' : 'options'}</span></div><div className="editor-options">{calculation.options.map(option => <OptionCard key={option.id} option={option} compact />)}</div>{calculation.budgetGapCents !== null && <div className="no-swap"><span aria-hidden="true">↔</span><div><strong>No swap fits this budget</strong><p>Even after the allowed removals, the budget is short by {formatMoney(calculation.budgetGapCents)}. This is an explanation, not a third offer.</p></div></div>}<p className="algorithm-note">Swaps remove the fewest items, then the least time. You decide what matters to your client.</p></> : <div className="empty-calculation"><span>↗</span><h3>A clear answer starts here.</h3><p>Complete the project details to see your rates and available options.</p>{showErrors && <p className="field-error">Please fix the highlighted fields to continue.</p>}</div>}
+          {calculation ? <><div className="rate-summary" aria-live="polite"><div className="rate-row"><span>Current rate</span><strong><Rate cents={calculation.currentRateCents} /></strong></div><div className="rate-row free-rate"><span>If added for free</span><strong><Rate cents={calculation.freeRateCents} />{calculation.changePercent !== null && <b className="percent-change">{calculation.changePercent < 0 ? '−' : '+'}{Math.abs(calculation.changePercent).toFixed(1)}%</b>}</strong></div><div className="keep-everything"><span>Keep everything</span><strong>+{formatMoney(calculation.options[0].extraCents)}</strong></div></div><p className="rate-explainer">Estimated hourly rate after your stated direct expenses, based on the time you enter.</p><div className="options-heading"><h3>Your proposal options</h3><span>{calculation.options.length} {calculation.options.length === 1 ? 'option' : 'options'}</span></div><div className="editor-options">{calculation.options.map(option => {
+            const rate = optionRates.find(result => result.id === option.id)!;
+            return <div className="editor-option" key={option.id}>
+              <OptionCard option={option} compact />
+              <div className="option-rate" aria-label={option.title + ' resulting rate'}>
+                <span>Resulting rate <small>Only visible here</small></span>
+                <strong><Rate cents={rate.rateCents} /></strong>
+                <p>{rate.minimumProtected ? '✓ Minimum protected' : 'Below your minimum'}</p>
+              </div>
+            </div>;
+          })}</div>{calculation.budgetGapCents !== null && <div className="no-swap"><span aria-hidden="true">↔</span><div><strong>No swap fits this budget</strong><p>Even after the allowed removals, the budget is short by {formatMoney(calculation.budgetGapCents)}. This is an explanation, not a third offer.</p></div></div>}<p className="algorithm-note">Swaps remove the fewest items, then the least time. You decide what matters to your client.</p></> : <div className="empty-calculation"><span>↗</span><h3>A clear answer starts here.</h3><p>Complete the project details to see your rates and available options.</p>{showErrors && <p className="field-error">Please fix the highlighted fields to continue.</p>}</div>}
           <div className="publish-area"><button className="button button-primary publish-button" onClick={publish} disabled={publishing}>{publishing ? 'Publishing proposal…' : 'Publish proposal'} <span aria-hidden="true">↗</span></button><p>Creates a client link and a separate private status link.<br />Your hours, expenses and minimum rate stay private.</p>{publishError && <div className="error-banner" role="alert">{publishError}</div>}</div>
         </div></aside></div>
-        {published && <div className="published-panel" ref={publishedRef} tabIndex={-1}><div className="published-heading"><span className="success-icon">✓</span><div><div className="eyebrow">SAVED & READY TO SHARE</div><h3>{published.proposal.confirmation ? 'Your client has confirmed.' : 'Your proposal has its own home.'}</h3><p>This published snapshot stays the same when you edit above. Publish again to create a new proposal.</p></div></div><div className="published-links"><div><span className="tiny-label">CLIENT LINK</span><a href={published.clientPath} target="_blank" rel="noopener noreferrer">Open client proposal ↗</a><p>Share this link with your client.</p><CopyLinkButton path={published.clientPath} kind="client" /></div><div><span className="tiny-label">PRIVATE STATUS LINK</span><a href={published.ownerPath} target="_blank" rel="noopener noreferrer">Open your private status ↗</a><p>Save this link. Anyone with it can view your project details.</p><CopyLinkButton path={published.ownerPath} kind="private" /></div></div><button className="button button-primary" disabled={copying} onClick={copyMessage}>{copying ? 'Preparing message…' : 'Copy message to client'}</button><p className="copy-status" role="status">{copied}</p>{messageFallback && <textarea className="message-fallback" aria-label="Client message to copy" readOnly value={messageFallback} onFocus={e => e.target.select()} />}</div>}
+        {published && <div className="published-panel" ref={publishedRef} tabIndex={-1}><div className="published-heading"><span className="success-icon">✓</span><div><div className="eyebrow">SAVED & READY TO SHARE</div><h3>{published.proposal.confirmation ? 'Your client has confirmed.' : 'Your proposal has its own home.'}</h3><p>This published snapshot stays the same when you edit above. Publish again to create a new proposal.</p></div></div><div className="published-links"><div><span className="tiny-label">CLIENT LINK</span><a href={published.clientPath} target="_blank" rel="noopener noreferrer">Open client proposal ↗</a><p>Share this link with your client.</p><CopyLinkButton path={published.clientPath} kind="client" /></div><div><span className="tiny-label">PRIVATE STATUS LINK</span><a href={published.ownerPath} target="_blank" rel="noopener noreferrer">Open your private status ↗</a><p>Save this link. Anyone with it can view your project details.</p><CopyLinkButton path={published.ownerPath} kind="private" /></div></div><ClientMessagePanel key={published.clientPath} proposal={published.proposal} clientPath={published.clientPath} onProposalChange={proposal => setPublished(current => current?.clientPath === published.clientPath ? { ...current, proposal } : current)} /></div>}
       </section>
       <section className="closing-note"><span className="brand-mark" aria-hidden="true">k<span>↗</span></span><p>Say yes to the work.<br /><em>Be clear about the trade-off.</em></p></section>
     </main><Footer />

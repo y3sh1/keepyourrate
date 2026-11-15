@@ -6,6 +6,10 @@ An English-language, USD web MVP for fixed-price service work. Turn an extra cli
 
 The calculated hourly rate is after the direct expenses entered and depends on the entered time. Offers protect the **chosen minimum**, which may be below the original effective rate.
 
+The editor shows the **resulting rate for each option**, using that option's final price, remaining expenses and work time. A label verifies the minimum using exact integer comparisons; only the displayed rate is rounded. These rates are editor-only and are never included in public options, the client page or client messages. A lower chosen minimum is explicitly distinguished from the original rate.
+
+After publication, **Preview message to client** opens a read-only preview beside the copy button, also available on the private status page. Preview and copy use the same saved public snapshot and template, so unpublished edits cannot change the message. Opening or copying checks the latest status; an open preview refreshes every five seconds while visible and on return to the tab. After confirmation it describes only the agreed option. Connection errors hide an unverified preview and offer a retry without clearing the draft or saved proposal.
+
 ## Drafts and reusing a proposal
 
 Edits autosave immediately in this browser, including unfinished or invalid text. Reloading restores the draft; **Continue your draft** returns to it. Opening a demo or blank project alone does not overwrite the saved copy; editing the new project replaces it. Drafts are device-local, contain your private working inputs, and do not include access links or confirmation. Browser storage must be available; failures are shown without clearing the current inputs. Clearing site data removes the saved draft.

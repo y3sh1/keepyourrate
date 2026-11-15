@@ -47,3 +47,20 @@ Browser checks used desktop Chrome/IAB and mobile viewport emulation, not physic
 - Browser-storage denial and clipboard denial handling were inspected in source; those permission failures were not forced in the live browser.
 - Production API regression: **7/7 active tests passed**, including concurrent confirmation, independent snapshots, capability isolation and public API/HTML/assets privacy.
 - Repeated draft restoration and independent A/B publication in production using IAB and Chrome: unfinished price and edited name survived reload; the copied draft retained its changed expenses after another reload. A remained confirmed as a $700 swap while B was independently confirmed at $1,030. Client and private clipboard links matched on both publication and owner pages.
+
+## Message preview and option rates — 15 November 2026
+
+| Requirement | Implementation | Executed verification | Status |
+|---|---|---|---|
+| Preview the actual client message | Shared read-only preview/copy panel, saved public snapshot | Local two-option, paid-only, free-only and confirmed-only browser cases; copied text matched preview | Passed |
+| Ignore unpublished edits | Preview receives only the published proposal and its client path | Changed request name and expenses after publication; preview kept the original scope and price | Passed |
+| Show the agreed message after confirmation | Refresh on open/copy, while open and visible, and on focus; monotonic confirmed state | Independent Chrome confirmation automatically updated IAB editor preview to the selected swap | Passed |
+| Resulting rate for every editor option | Separate editor-only helper using remaining time/costs and exact BigInt comparisons | Ten new fixed-expectation tests, including lower floor, duplicate names, ceiling, zero floor and upper bounds | Passed |
+| Keep client data private | PublicOption and Worker DTO unchanged; no rate helper in client route | Local API, HTML, embedded data and eight referenced assets; wrong-capability rejection | Passed |
+| Recover from connection errors | Hide unverified preview, retain inputs, retry latest saved state | Stopped local Worker, observed error with preview hidden, restarted and recovered the same pending proposal | Passed |
+| Small-screen layout | Wrapping message text and separate editor rate blocks | Chrome narrow viewport (417px content width), long request name, equal document/scroll widths | Passed within tested layout |
+
+- Total unit suite: **43/43 passed**. TypeScript and production build passed.
+- Local API suite: **7/7 active tests passed**; the separate persistence-test mode was not repeated. Browser retry did read the same pending proposal after a real local Worker stop/start.
+- Browser checks used IAB and independent Chrome. Physical phones and forced clipboard permission denial were not tested in this update. Existing selectable-copy fallback remains.
+- No new fields were added to saved/public proposal schemas. Existing proposals remain compatible. UI polling can take up to five seconds to notice an external confirmation; opening/copying also refreshes the saved status.
