@@ -64,3 +64,12 @@ Browser checks used desktop Chrome/IAB and mobile viewport emulation, not physic
 - Local API suite: **7/7 active tests passed**; the separate persistence-test mode was not repeated. Browser retry did read the same pending proposal after a real local Worker stop/start.
 - Browser checks used IAB and independent Chrome. Physical phones and forced clipboard permission denial were not tested in this update. Existing selectable-copy fallback remains.
 - No new fields were added to saved/public proposal schemas. Existing proposals remain compatible. UI polling can take up to five seconds to notice an external confirmation; opening/copying also refreshes the saved status.
+
+## Permanent Cloudflare production — 15 November 2026
+
+- Deployed the existing app to `https://keepyourrate.keepyourrate.workers.dev` with the permanent `keepyourrate-prod` D1 database in the owner's Cloudflare account. This is a normal account deployment, not a temporary/claim deployment. No paid plan was enabled.
+- Applied `0000_proposals.sql` to remote D1 successfully. Rebuilt the app with the real database binding; TypeScript compilation and production build passed.
+- Initial HTTP test attempts could not establish TLS while the new subdomain was activating. Once normal verified HTTPS returned 200, reran the complete production API suite: **7/7 active tests passed**. No TLS checks were disabled. The hosted process-restart test remains skipped because the Worker lifecycle is platform-managed.
+- Production API verification includes atomic concurrent confirmation, idempotency, wrong-capability denial, immutable independent snapshots, validation/tamper rejection, and privacy of public JSON/HTML/initial data/eight referenced assets.
+- Browser flow: fresh IAB editor published the demo; independent Chrome opened the client link without login and confirmed the $700 swap. The private page retained the same selected scope, total and timestamp after reload. The confirmed copied message matched its preview and used the new `workers.dev` client link.
+- The previous Sites deployment and its database were left intact. Old proposal links continue to refer to that host; records were not copied into the new database. This change does not modify product calculation or UI logic, so the previously passed **43/43 unit tests** were not rerun for this hosting-only update.

@@ -1,6 +1,6 @@
 # KeepYourRate
 
-[Live application](https://keepyourrate-cup-two.buffforum64.chatgpt.site) · [Public source](https://github.com/y3sh1/keepyourrate)
+[Live application](https://keepyourrate.keepyourrate.workers.dev) · [Public source](https://github.com/y3sh1/keepyourrate)
 
 An English-language, USD web MVP for fixed-price service work. Turn an extra client request into a paid add-on or a scope swap, publish an immutable proposal, and let the client confirm the agreed price and work. No registration, payment collection, AI, or message sending.
 
@@ -67,19 +67,23 @@ See `VERIFICATION.md` for executed checks and remaining limits. Unit expectation
 
 ## Deploy
 
-**Sites:** `.openai/hosting.json` binds the existing Site identity and the logical D1 database `DB`. `npm run build` produces a Worker at `dist/server/index.js`, Next.js assets at `dist/client`, and migration metadata at `dist/.openai`. Publish the exact pushed commit and its build archive using Sites. Sites provisions D1 and applies `drizzle/0000_proposals.sql` before deployment. Do not publish only the Next.js `out/` directory: it lacks the API and persistent storage.
+**Primary production — Cloudflare:** `https://keepyourrate.keepyourrate.workers.dev` serves the complete app without login, using the persistent `keepyourrate-prod` D1 database. `wrangler.jsonc` contains the deployment account/database identifiers (not credentials), the `DB` binding and `workers_dev: true`. OAuth credentials stay outside the repository. No paid subscription was enabled.
 
-**Direct Cloudflare alternative:** sign in with `npx wrangler login`, create a database with `npx wrangler d1 create keepyourrate`, and replace the placeholder `database_id` in `wrangler.jsonc` with its returned ID. Then:
+For updates in the configured account, sign in with `npx wrangler login`, then:
 
 ```sh
 npm run build
-npx wrangler d1 migrations apply DB --remote
-npx wrangler deploy
+npx wrangler d1 migrations apply DB --remote --config wrangler.jsonc
+npx wrangler deploy --config wrangler.jsonc --no-autoconfig
 ```
+
+For your own fork/account, create a separate database with `npx wrangler d1 create keepyourrate-prod`, replace `account_id`, `database_name` and `database_id` in `wrangler.jsonc` with your returned identifiers, then run the commands above. Keep the binding name `DB`. Do not point a fork at someone else's production database. Do not publish only the Next.js `out/` directory: it lacks the API and persistent storage.
+
+**Previous Sites deployment:** [the original site](https://keepyourrate-cup-two.buffforum64.chatgpt.site) remains available for its existing proposal links. Its D1 database was not migrated into the new Cloudflare account; proposals created on each host remain independent. Browser drafts are also local to each origin. `.openai/hosting.json` preserves that earlier Site identity for maintenance; the primary deployment now uses Wrangler. `npm run build` still produces a Worker at `dist/server/index.js`, Next.js assets at `dist/client`, and the optional Sites deployment metadata in `dist/.openai`.
 
 Use an existing suitable free account; no paid subscription is required or purchased by this project. Confirm available quotas before broader use. Set the public site audience so client links work without login. Do not embed credentials or proposals in source, build assets, or logs. Keep request access logging disabled because URLs are bearer capabilities.
 
-The public GitHub repository is linked above. The `.gitignore` excludes dependencies, build outputs, local D1, environment files and test receipts. Review `git ls-files` before pushing changes. Sites also has its own separate source repository; synchronize the exact source used for each deployment.
+The public GitHub repository is linked above. The `.gitignore` excludes dependencies, build outputs, local D1, environment files and test receipts. Review `git ls-files` before pushing changes. The previous Sites source repository remains at its last published version; GitHub tracks the current Cloudflare configuration.
 
 ## 60-second judging scenario
 
